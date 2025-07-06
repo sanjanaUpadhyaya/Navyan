@@ -1,4 +1,4 @@
-# Nxtra E-learning Platform
+#  E-learning Platform
 
 ## Overview
 
