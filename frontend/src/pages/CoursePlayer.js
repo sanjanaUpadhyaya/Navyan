@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { courses } from '../utils/mockData';
 import { getUserData, hasRole } from '../utils/authUtils';
 import Navbar from '../components/Navbar';
-import ReactPlayer from 'react-player/lazy';
+import ReactPlayer from 'react-player';
 import { CheckCircleIcon, LockClosedIcon, PlayIcon, BookmarkIcon, ChatBubbleLeftIcon } from '@heroicons/react/24/solid';
+import { courseService } from '../utils/courseService';
 
 const CoursePlayer = () => {
   const { courseId } = useParams();
@@ -21,6 +21,8 @@ const CoursePlayer = () => {
   const [duration, setDuration] = useState(0);
   const [notes, setNotes] = useState('');
   const [showNotes, setShowNotes] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   
   // Check if user is logged in and has access to this course
   useEffect(() => {
@@ -30,21 +32,12 @@ const CoursePlayer = () => {
       return;
     }
     
-    // Find the course
-    const foundCourse = courses.find(c => c.id === parseInt(courseId));
-    if (!foundCourse) {
-      navigate('/courses');
-      return;
-    }
-    
     // Check if user is enrolled or is an admin/instructor
     const isEnrolled = userData.enrolledCourses && userData.enrolledCourses.includes(parseInt(courseId));
     if (!isEnrolled && !hasRole('admin') && !hasRole('instructor')) {
       navigate(`/course/${courseId}`);
       return;
     }
-    
-    setCourse(foundCourse);
     
     // Load progress from localStorage
     const savedProgress = localStorage.getItem(`course_progress_${courseId}`);
@@ -193,30 +186,23 @@ const CoursePlayer = () => {
     loadNotes();
   }, [activeModule, activeLesson, courseId]);
   
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary-500"></div>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const fetchCourse = async () => {
+      try {
+        const data = await courseService.getCourseById(courseId);
+        setCourse(data);
+      } catch (err) {
+        setError('Failed to load course');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourse();
+  }, [courseId]);
   
-  if (!course) {
-    return (
-      <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-800">Course not found</h2>
-          <p className="mt-2 text-gray-600">The course you're looking for doesn't exist or has been removed.</p>
-          <button 
-            onClick={() => navigate('/courses')} 
-            className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500"
-          >
-            Back to Courses
-          </button>
-        </div>
-      </div>
-    );
-  }
+  if (loading) return <div>Loading...</div>;
+  if (error) return <div>{error}</div>;
+  if (!course) return <div>No course found</div>;
   
   const currentModule = course.modules[activeModule];
   const currentLesson = currentModule.lessons[activeLesson];
@@ -308,25 +294,12 @@ const CoursePlayer = () => {
           {/* Video Player */}
           <div className="relative bg-black">
             <div className="aspect-video">
-              <ReactPlayer
-                url={currentLesson.videoUrl}
-                width="100%"
-                height="100%"
-                playing={playing}
-                controls={true}
-                onProgress={handleProgress}
-                onEnded={handleEnded}
-                onDuration={setDuration}
-                config={{
-                  youtube: {
-                    playerVars: {
-                      modestbranding: 1,
-                      rel: 0,
-                      showinfo: 0,
-                    }
-                  }
-                }}
-              />
+              {currentLesson?.videoFileId && (
+                <video src={`http://localhost:5000/api/file/${currentLesson.videoFileId}`} controls width="100%" />
+              )}
+              {currentLesson?.pdfFileId && (
+                <iframe src={`http://localhost:5000/api/file/${currentLesson.pdfFileId}`} width="100%" height="500px" title="PDF Preview" />
+              )}
             </div>
             
             {/* Mobile sidebar toggle */}

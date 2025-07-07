@@ -1,127 +1,317 @@
 // Course service for managing courses
-import { courses as mockCourses } from './mockData';
+const API_BASE_URL = 'http://localhost:5000/api';
 
-// Get courses from localStorage or use mock data as fallback
-const getStoredCourses = () => {
-  try {
-    const stored = localStorage.getItem('courses');
-    return stored ? JSON.parse(stored) : mockCourses;
-  } catch (error) {
-    console.error('Error loading courses:', error);
-    return mockCourses;
+class CourseService {
+  constructor() {
+    this.token = localStorage.getItem('token');
   }
-};
 
-// Save courses to localStorage
-const saveCourses = (courses) => {
-  try {
-    localStorage.setItem('courses', JSON.stringify(courses));
-  } catch (error) {
-    console.error('Error saving courses:', error);
+  setToken(token) {
+    this.token = token;
+    localStorage.setItem('token', token);
   }
-};
 
-// Course service functions
-export const courseService = {
-  // Get all courses
-  getAllCourses: () => {
-    return getStoredCourses();
-  },
-
-  // Get course by ID
-  getCourseById: (id) => {
-    const courses = getStoredCourses();
-    return courses.find(course => course.id === id);
-  },
-
-  // Add new course
-  addCourse: (courseData) => {
-    const courses = getStoredCourses();
-    const newCourse = {
-      ...courseData,
-      id: Date.now(), // Simple ID generation
-      instructor: courseData.instructor || 'Current Instructor',
-      instructorId: courseData.instructorId || Date.now(),
-      rating: 0,
-      reviews: 0,
-      students: 0,
-      lastUpdated: new Date().toISOString().split('T')[0],
-      createdAt: new Date().toISOString(),
-      status: 'draft', // draft, published, archived
-      isPublished: false
+  getHeaders() {
+    return {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${this.token}`
     };
-    
-    courses.push(newCourse);
-    saveCourses(courses);
-    return newCourse;
-  },
-
-  // Update existing course
-  updateCourse: (id, courseData) => {
-    const courses = getStoredCourses();
-    const index = courses.findIndex(course => course.id === id);
-    
-    if (index !== -1) {
-      courses[index] = {
-        ...courses[index],
-        ...courseData,
-        lastUpdated: new Date().toISOString().split('T')[0]
-      };
-      saveCourses(courses);
-      return courses[index];
-    }
-    
-    return null;
-  },
-
-  // Delete course
-  deleteCourse: (id) => {
-    const courses = getStoredCourses();
-    const filteredCourses = courses.filter(course => course.id !== id);
-    saveCourses(filteredCourses);
-    return true;
-  },
-
-  // Publish course
-  publishCourse: (id) => {
-    const courses = getStoredCourses();
-    const index = courses.findIndex(course => course.id === id);
-    
-    if (index !== -1) {
-      courses[index] = {
-        ...courses[index],
-        status: 'published',
-        isPublished: true,
-        publishedAt: new Date().toISOString()
-      };
-      saveCourses(courses);
-      return courses[index];
-    }
-    
-    return null;
-  },
-
-  // Get courses by instructor
-  getCoursesByInstructor: (instructorId) => {
-    const courses = getStoredCourses();
-    return courses.filter(course => course.instructorId === instructorId);
-  },
-
-  // Get published courses only
-  getPublishedCourses: () => {
-    const courses = getStoredCourses();
-    return courses.filter(course => course.isPublished);
-  },
-
-  // Search courses
-  searchCourses: (query) => {
-    const courses = getStoredCourses();
-    const publishedCourses = courses.filter(course => course.isPublished);
-    
-    return publishedCourses.filter(course => 
-      course.title.toLowerCase().includes(query.toLowerCase()) ||
-      course.instructor.toLowerCase().includes(query.toLowerCase()) ||
-      course.description.toLowerCase().includes(query.toLowerCase())
-    );
   }
-}; 
+
+  // Course Management
+  async createCourse(courseData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/courses`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(courseData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create course');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Create course error:', error);
+      throw error;
+    }
+  }
+
+  async getInstructorCourses() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/instructor/courses`, {
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch courses');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get instructor courses error:', error);
+      throw error;
+    }
+  }
+
+  async getAllCourses(filters = {}) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (filters.category) queryParams.append('category', filters.category);
+      if (filters.level) queryParams.append('level', filters.level);
+      if (filters.search) queryParams.append('search', filters.search);
+
+      const response = await fetch(`${API_BASE_URL}/courses?${queryParams}`, {
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch courses');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get all courses error:', error);
+      throw error;
+    }
+  }
+
+  async getCourseById(courseId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}`, {
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch course');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get course error:', error);
+      throw error;
+    }
+  }
+
+  async updateCourse(courseId, courseData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(courseData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update course');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Update course error:', error);
+      throw error;
+    }
+  }
+
+  async deleteCourse(courseId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete course');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Delete course error:', error);
+      throw error;
+    }
+  }
+
+  // Enrollment Management
+  async enrollInCourse(courseId) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/enroll/${courseId}`, {
+        method: 'POST',
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to enroll in course');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Enroll in course error:', error);
+      throw error;
+    }
+  }
+
+  async getEnrolledCourses() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/enrolled-courses`, {
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch enrolled courses');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get enrolled courses error:', error);
+      throw error;
+    }
+  }
+
+  async updateCourseProgress(courseId, progress, completedLessons) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/courses/${courseId}/progress`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ progress, completedLessons })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to update progress');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Update progress error:', error);
+      throw error;
+    }
+  }
+
+  // File Upload
+  async uploadFile(file) {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch(`${API_BASE_URL}/upload`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.token}`
+        },
+        body: formData
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to upload file');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('File upload error:', error);
+      throw error;
+    }
+  }
+
+  // Authentication (for MongoDB backend)
+  async register(userData) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(userData)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Registration failed');
+      }
+
+      const data = await response.json();
+      this.setToken(data.token);
+      return data;
+    } catch (error) {
+      console.error('Registration error:', error);
+      throw error;
+    }
+  }
+
+  async login(credentials) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(credentials)
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Login failed');
+      }
+
+      const data = await response.json();
+      this.setToken(data.token);
+      return data;
+    } catch (error) {
+      console.error('Login error:', error);
+      throw error;
+    }
+  }
+
+  async getProfile() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/profile`, {
+        headers: this.getHeaders()
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch profile');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Get profile error:', error);
+      throw error;
+    }
+  }
+
+  logout() {
+    this.token = null;
+    localStorage.removeItem('token');
+  }
+
+  isAuthenticated() {
+    return !!this.token;
+  }
+
+  async getCoursesByInstructor() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/instructor/courses`, {
+        headers: this.getHeaders()
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to fetch instructor courses');
+      }
+      return await response.json();
+    } catch (error) {
+      console.error('Get instructor courses error:', error);
+      throw error;
+    }
+  }
+}
+
+export const courseService = new CourseService(); 

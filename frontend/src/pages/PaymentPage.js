@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { courses } from '../utils/mockData';
 import { getUserData } from '../utils/authUtils';
 import Navbar from '../components/Navbar';
 import { CheckCircleIcon, CreditCardIcon, LockClosedIcon } from '@heroicons/react/24/solid';
@@ -26,14 +25,8 @@ const PaymentPage = () => {
       return;
     }
     
-    // Find the course
-    const foundCourse = courses.find(c => c.id === parseInt(courseId));
-    if (!foundCourse) {
-      navigate('/courses');
-      return;
-    }
-    
-    setCourse(foundCourse);
+    // TODO: Fetch course from backend using courseId
+    setCourse({ title: 'Course Title', price: 1000, discountPrice: 800, thumbnail: '', id: courseId }); // Placeholder
     setIsLoading(false);
     
     // Check if course is already purchased

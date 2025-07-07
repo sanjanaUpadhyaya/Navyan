@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { FaUserCircle, FaChartBar, FaBook, FaCalendarAlt, FaClipboardList, FaCheckCircle, FaHourglassHalf } from 'react-icons/fa';
 import { getUserData } from '../../utils/authUtils';
+import { courseService } from '../../utils/courseService';
+import CourseCard from '../../components/CourseCard';
 import Calendar from 'react-calendar';
 import 'react-calendar/dist/Calendar.css';
 
@@ -20,11 +22,28 @@ const DashboardHome = () => {
   const certificates = 0;
   const upcomingLessons = [];
   const recentQuizzes = [];
+  const [allCourses, setAllCourses] = useState([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
 
   useEffect(() => {
     const handler = (e) => setSelectedCategory(e.detail);
     window.addEventListener('dashboard-category', handler);
     return () => window.removeEventListener('dashboard-category', handler);
+  }, []);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        setLoadingCourses(true);
+        const courses = await courseService.getAllCourses();
+        setAllCourses(courses);
+      } catch (err) {
+        setAllCourses([]);
+      } finally {
+        setLoadingCourses(false);
+      }
+    };
+    fetchCourses();
   }, []);
 
   // Calendar tile content for events (empty)
@@ -93,9 +112,17 @@ const DashboardHome = () => {
                 View All
               </button>
             </div>
-            <ul className="space-y-2">
+            {loadingCourses ? (
+              <div className="text-gray-400 italic">Loading courses...</div>
+            ) : allCourses.length === 0 ? (
               <li className="text-gray-400 italic">No courses found for this category.</li>
-            </ul>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                {allCourses.map(course => (
+                  <CourseCard key={course._id} course={course} />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Grid of Cards/Widgets */}

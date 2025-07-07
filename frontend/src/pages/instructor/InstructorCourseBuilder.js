@@ -52,6 +52,28 @@ const InstructorCourseBuilder = () => {
   const [publishStatus, setPublishStatus] = useState('Draft');
   const [showPreview, setShowPreview] = useState(false);
 
+  // Add helper function for file upload
+  const uploadFile = async (file) => {
+    if (!localStorage.getItem('token')) {
+      localStorage.setItem('token', 'dummy-token-for-dev');
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    const token = localStorage.getItem('token') || 'dummy-token-for-dev';
+    const response = await fetch('http://localhost:5000/api/upload', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: formData
+    });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Upload error:', errorText);
+      throw new Error('File upload failed');
+    }
+    const data = await response.json();
+    return data.fileId;
+  };
+
   // Handle input change for basic course info
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -219,30 +241,29 @@ const InstructorCourseBuilder = () => {
   };
 
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    
     // Validate form
-    if (!course.title || !course.description || !course.category || !course.price) {
+    if (!course.title || !course.description || !course.category) {
       alert('Please fill in all required fields');
       return;
     }
-    // Get current user data
-    const userData = getUserData();
-    // Prepare course data with instructor information
-    const courseData = {
-      ...course,
-      instructor: userData.email,
-      instructorId: userData.id || Date.now(),
-      duration: calculateTotalDuration(),
-      thumbnail: course.thumbnail || 'https://via.placeholder.com/640x360?text=Course+Thumbnail',
-      status: 'draft',
-      isPublished: false
-    };
+
     try {
+      // Prepare course data
+      const courseData = {
+        ...course,
+        thumbnail: course.thumbnail || 'https://via.placeholder.com/640x360?text=Course+Thumbnail',
+        status: publishStatus
+      };
+
       // Save course using the service
-      const savedCourse = courseService.addCourse(courseData);
-      console.log('Course saved successfully:', savedCourse);
-      alert('Course saved successfully! You can now publish it to make it visible to students.');
+      const result = await courseService.createCourse(courseData);
+      console.log('Course saved successfully:', result);
+      
+      alert(`Course ${publishStatus === 'Published' ? 'published' : 'saved'} successfully!`);
+      
       // Redirect to instructor dashboard
       navigate('/instructor-dashboard');
     } catch (error) {
@@ -529,21 +550,14 @@ const InstructorCourseBuilder = () => {
                                     <div className="mb-2">
                                       <label className="block text-sm font-medium text-gray-700 mb-1">Video (URL or MP4)</label>
                                       <input
-                                        type="text"
-                                        value={lesson.videoUrl || ''}
-                                        onChange={e => handleLessonChange(moduleIndex, lessonIndex, 'videoUrl', e.target.value)}
-                                        className="block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                                        placeholder="Paste video URL or upload below"
-                                      />
-                                      {/* File upload for video (optional) */}
-                                      <input
                                         type="file"
                                         accept="video/mp4"
                                         className="mt-2"
-                                        onChange={e => {
+                                        onChange={async e => {
                                           const file = e.target.files[0];
                                           if (file) {
-                                            handleLessonChange(moduleIndex, lessonIndex, 'videoUrl', URL.createObjectURL(file));
+                                            const fileId = await uploadFile(file);
+                                            handleLessonChange(moduleIndex, lessonIndex, 'videoFileId', fileId);
                                           }
                                         }}
                                       />
@@ -554,15 +568,16 @@ const InstructorCourseBuilder = () => {
                                         type="file"
                                         accept="application/pdf"
                                         className="block w-full"
-                                        onChange={e => {
+                                        onChange={async e => {
                                           const file = e.target.files[0];
                                           if (file) {
-                                            handleLessonChange(moduleIndex, lessonIndex, 'pdfUrl', URL.createObjectURL(file));
+                                            const fileId = await uploadFile(file);
+                                            handleLessonChange(moduleIndex, lessonIndex, 'pdfFileId', fileId);
                                           }
                                         }}
                                       />
-                                      {lesson.pdfUrl && (
-                                        <a href={lesson.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-primary-600 underline text-xs mt-1 inline-block">View PDF</a>
+                                      {lesson.pdfFileId && (
+                                        <a href={`http://localhost:5000/api/download/${lesson.pdfFileId}`} target="_blank" rel="noopener noreferrer" className="text-primary-600 underline text-xs mt-1 inline-block">View PDF</a>
                                       )}
                                     </div>
                                     {/* Quiz Builder Accordion */}

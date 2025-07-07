@@ -256,12 +256,12 @@ const CourseBuilder = () => {
   };
   
   // Handle form submission
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     // Validate form
-    if (!course.title || !course.description || !course.category || !course.price) {
-      alert('Please fill in all required fields');
+    if (!course.title || !course.description) {
+      alert('Please fill in the course title and description');
       return;
     }
     
@@ -281,7 +281,7 @@ const CourseBuilder = () => {
     
     try {
       // Save course using the service
-      const savedCourse = courseService.addCourse(courseData);
+      const savedCourse = await courseService.createCourse(courseData);
       console.log('Course saved successfully:', savedCourse);
       
       alert('Course saved successfully! You can now publish it to make it visible to students.');
@@ -335,8 +335,35 @@ const CourseBuilder = () => {
             </div>
             <div>
               <label className="block font-semibold mb-1">Thumbnail</label>
-              <input type="file" accept="image/*" onChange={e => handleInputChange(e)} className="block" />
-              {course.thumbnailUrl && <img src={course.thumbnailUrl} alt="Thumbnail preview" className="mt-2 w-32 h-20 object-cover rounded shadow" />}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={async (e) => {
+                  const file = e.target.files[0];
+                  if (!file) return;
+                  const formData = new FormData();
+                  formData.append('file', file);
+                  const res = await fetch('http://localhost:5000/api/upload', {
+                    method: 'POST',
+                    headers: {
+                      Authorization: `Bearer ${localStorage.getItem('token') || 'dummy-token-for-dev'}`
+                    },
+                    body: formData
+                  });
+                  const data = await res.json();
+                  if (data.url) {
+                    setCourse(prev => ({
+                      ...prev,
+                      thumbnail: data.url,
+                      thumbnailUrl: data.url
+                    }));
+                  }
+                }}
+                className="block"
+              />
+              {course.thumbnailUrl && (
+                <img src={course.thumbnailUrl} alt="Thumbnail preview" className="mt-2 w-32 h-20 object-cover rounded shadow" />
+              )}
             </div>
           </div>
         );
@@ -357,6 +384,68 @@ const CourseBuilder = () => {
                       <button className="p-2 rounded hover:bg-red-100" onClick={() => handleRemoveLesson(mIdx, lIdx)} title="Remove lesson"><FaTrash className="text-red-500" /></button>
                     </div>
                     <textarea className="input w-full" value={lesson.content} onChange={e => handleLessonChange(mIdx, lIdx, 'content', e.target.value)} placeholder="Lesson content" rows={2} />
+                    {/* Video Upload */}
+                    <input
+                      type="file"
+                      accept="video/*"
+                      className="input mt-2"
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await fetch('http://localhost:5000/api/upload', {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${localStorage.getItem('token') || 'dummy-token-for-dev'}`
+                          },
+                          body: formData
+                        });
+                        const data = await res.json();
+                        if (data.url) {
+                          handleLessonChange(mIdx, lIdx, 'videoUrl', data.url);
+                        }
+                      }}
+                    />
+                    {/* Video URL input */}
+                    <input
+                      type="text"
+                      className="input mt-2"
+                      value={lesson.videoUrl || ''}
+                      onChange={e => handleLessonChange(mIdx, lIdx, 'videoUrl', e.target.value)}
+                      placeholder="Video URL (optional)"
+                    />
+                    {/* PDF Upload */}
+                    <input
+                      type="file"
+                      accept="application/pdf"
+                      className="input mt-2"
+                      onChange={async (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        const res = await fetch('http://localhost:5000/api/upload', {
+                          method: 'POST',
+                          headers: {
+                            Authorization: `Bearer ${localStorage.getItem('token') || 'dummy-token-for-dev'}`
+                          },
+                          body: formData
+                        });
+                        const data = await res.json();
+                        if (data.url) {
+                          handleLessonChange(mIdx, lIdx, 'pdfUrl', data.url);
+                        }
+                      }}
+                    />
+                    {/* PDF URL input */}
+                    <input
+                      type="text"
+                      className="input mt-2"
+                      value={lesson.pdfUrl || ''}
+                      onChange={e => handleLessonChange(mIdx, lIdx, 'pdfUrl', e.target.value)}
+                      placeholder="PDF URL (optional)"
+                    />
                     {/* Quiz Builder */}
                     <div className="mt-2">
                       <div className="flex items-center gap-2 mb-1">

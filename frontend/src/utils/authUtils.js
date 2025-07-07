@@ -1,8 +1,8 @@
 // Authentication utility functions
-
+import { courseService } from './courseService';
 import { demoUsers } from './mockData';
 
-// Check if user credentials are valid
+// Check if user credentials are valid (for Firebase login)
 export const validateUser = (email, password) => {
   // Convert email to lowercase for case-insensitive comparison
   const lowerEmail = email.toLowerCase();
@@ -18,12 +18,12 @@ export const validateUser = (email, password) => {
   return { isValid: false };
 };
 
-// Save user data to localStorage (for Firebase users)
+// Save user data to localStorage
 export const saveUserData = (userData) => {
   localStorage.setItem('user', JSON.stringify(userData));
 };
 
-// Get user data from localStorage (for Firebase users)
+// Get user data from localStorage
 export const getUserData = () => {
   const userData = localStorage.getItem('user');
   return userData ? JSON.parse(userData) : null;
@@ -31,11 +31,12 @@ export const getUserData = () => {
 
 // Check if user is logged in
 export const isLoggedIn = () => {
-  return !!getUserData();
+  return courseService.isAuthenticated() && !!getUserData();
 };
 
 // Logout user
 export const logoutUser = () => {
+  courseService.logout();
   localStorage.removeItem('user');
 };
 
@@ -75,8 +76,28 @@ export const isLearner = () => {
 
 // Logout function
 export const logout = () => {
+  courseService.logout();
   localStorage.removeItem('user');
-  // You can also sign out from Firebase Auth here if needed
-  // import { signOut } from 'firebase/auth';
-  // await signOut(auth);
+};
+
+// Login function using MongoDB backend
+export const loginUser = async (email, password) => {
+  try {
+    const response = await courseService.login({ email, password });
+    saveUserData(response.user);
+    return { success: true, user: response.user };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+};
+
+// Register function using MongoDB backend
+export const registerUser = async (userData) => {
+  try {
+    const response = await courseService.register(userData);
+    saveUserData(response.user);
+    return { success: true, user: response.user };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
 };

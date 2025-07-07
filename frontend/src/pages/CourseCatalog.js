@@ -6,14 +6,18 @@ import { hasRole } from '../utils/authUtils';
 import Navbar from '../components/Navbar';
 import CourseCard from '../components/CourseCard';
 import { ChevronRightIcon, HomeIcon } from '@heroicons/react/24/solid';
+import { FaSearch, FaFilter } from 'react-icons/fa';
 
 const LEVELS = ['Beginner', 'Intermediate', 'Advanced', 'All Levels'];
 const RATINGS = [4.5, 4, 3.5, 3];
 
 const CourseCatalog = () => {
-  const [filteredCourses, setFilteredCourses] = useState([]);
+  const [courses, setCourses] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState('all');
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedLevel, setSelectedLevel] = useState('');
   const [selectedLevels, setSelectedLevels] = useState([]);
   const [selectedSort, setSelectedSort] = useState('popular');
   const [selectedPrice, setSelectedPrice] = useState('all');
@@ -39,62 +43,26 @@ const CourseCatalog = () => {
 
   // Initialize filtered courses with published courses
   useEffect(() => {
-    const publishedCourses = courseService.getPublishedCourses();
-    setFilteredCourses(publishedCourses);
-  }, []);
+    const fetchCourses = async () => {
+      try {
+        setLoading(true);
+        const filters = {};
+        if (selectedCategory) filters.category = selectedCategory;
+        if (selectedLevel) filters.level = selectedLevel;
+        if (searchTerm) filters.search = searchTerm;
 
-  // Filter courses based on filters
-  useEffect(() => {
-    let result = courseService.getPublishedCourses();
+        const fetchedCourses = await courseService.getAllCourses(filters);
+        setCourses(fetchedCourses);
+      } catch (err) {
+        console.error('Error fetching courses:', err);
+        setError('Failed to load courses. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    // Search
-    if (searchTerm) {
-      result = result.filter(course =>
-        course.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.instructor.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        course.description.toLowerCase().includes(searchTerm.toLowerCase())
-      );
-    }
-    // Category
-    if (selectedCategory !== 'all') {
-      result = result.filter(course => course.category === selectedCategory);
-    }
-    // Level
-    if (selectedLevels.length > 0) {
-      result = result.filter(course => selectedLevels.includes(course.level));
-    }
-    // Price
-    if (selectedPrice === 'free') {
-      result = result.filter(course => course.price === 0 || course.discountPrice === 0);
-    } else if (selectedPrice === 'paid') {
-      result = result.filter(course => (course.discountPrice || course.price) > 0);
-    }
-    // Rating
-    if (selectedRating !== 'all') {
-      result = result.filter(course => course.rating >= Number(selectedRating));
-    }
-    // Sort
-    switch (selectedSort) {
-      case 'popular':
-        result.sort((a, b) => b.students - a.students);
-        break;
-      case 'newest':
-        result.sort((a, b) => new Date(b.lastUpdated) - new Date(a.lastUpdated));
-        break;
-      case 'price-low':
-        result.sort((a, b) => (a.discountPrice || a.price) - (b.discountPrice || b.price));
-        break;
-      case 'price-high':
-        result.sort((a, b) => (b.discountPrice || b.price) - (a.discountPrice || a.price));
-        break;
-      case 'rating':
-        result.sort((a, b) => b.rating - a.rating);
-        break;
-      default:
-        break;
-    }
-    setFilteredCourses(result);
-  }, [searchTerm, selectedCategory, selectedLevels, selectedSort, selectedPrice, selectedRating]);
+    fetchCourses();
+  }, [searchTerm, selectedCategory, selectedLevel]);
 
   // Handlers
   const handleLevelChange = (level) => {
@@ -102,6 +70,25 @@ const CourseCatalog = () => {
       prev.includes(level) ? prev.filter(l => l !== level) : [...prev, level]
     );
   };
+
+  const handleEnroll = async (courseId) => {
+    try {
+      await courseService.enrollInCourse(courseId);
+      alert('Successfully enrolled in the course!');
+      // Optionally refresh the course list or update UI
+    } catch (err) {
+      console.error('Error enrolling in course:', err);
+      alert(err.message || 'Failed to enroll in course. Please try again.');
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -241,7 +228,7 @@ const CourseCatalog = () => {
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                   <h1 className="text-2xl font-bold text-gray-800">Course Catalog</h1>
-                  <p className="text-gray-600 mt-1">{filteredCourses.length} courses available</p>
+                  <p className="text-gray-600 mt-1">{courses.length} courses available</p>
                 </div>
                 
                 {/* Mobile sidebar toggle */}
@@ -278,23 +265,40 @@ const CourseCatalog = () => {
               </div>
             </div>
             
-            {/* Course Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredCourses.map(course => (
-                <CourseCard key={course.id} course={course} />
-              ))}
-            </div>
+            {/* Error Message */}
+            {error && (
+              <div className="mb-6 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                {error}
+              </div>
+            )}
             
-            {/* No Results */}
-            {filteredCourses.length === 0 && (
+            {/* Course Grid */}
+            {courses.length === 0 ? (
               <div className="text-center py-12">
-                <div className="text-gray-400 mb-4">
-                  <svg className="mx-auto h-12 w-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9.172 16.172a4 4 0 015.656 0M9 12h6m-6-4h6m2 5.291A7.962 7.962 0 0112 15c-2.34 0-4.47-.881-6.08-2.33" />
-                  </svg>
+                <div className="text-2xl font-semibold text-gray-600 mb-4">
+                  No courses found
                 </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No courses found</h3>
-                <p className="text-gray-500">Try adjusting your filters or search terms.</p>
+                <p className="text-gray-500">
+                  Try adjusting your search criteria or check back later for new courses.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                {courses.map(course => (
+                  <CourseCard
+                    key={course._id}
+                    course={course}
+                    onEnroll={() => handleEnroll(course._id)}
+                    showEnrollButton={true}
+                  />
+                ))}
+              </div>
+            )}
+            
+            {/* Results Count */}
+            {courses.length > 0 && (
+              <div className="mt-8 text-center text-gray-600">
+                Showing {courses.length} course{courses.length !== 1 ? 's' : ''}
               </div>
             )}
           </div>

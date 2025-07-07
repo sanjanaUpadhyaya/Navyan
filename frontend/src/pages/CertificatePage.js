@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { courses } from '../utils/mockData';
 import { getUserData } from '../utils/authUtils';
 import Navbar from '../components/Navbar';
 import { DownloadIcon, PrinterIcon, ShareIcon } from '@heroicons/react/outline';
@@ -26,14 +25,8 @@ const CertificatePage = () => {
     
     setUser(userData);
     
-    // Find the course
-    const foundCourse = courses.find(c => c.id === parseInt(courseId));
-    if (!foundCourse) {
-      navigate('/courses');
-      return;
-    }
-    
-    setCourse(foundCourse);
+    // TODO: Fetch course from backend using courseId
+    setCourse({ title: 'Course Title', instructor: 'Instructor Name' }); // Placeholder
     
     // Check if course is completed
     const userProgress = JSON.parse(localStorage.getItem('user_progress') || '{}');

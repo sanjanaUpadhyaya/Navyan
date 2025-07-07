@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { courses, instructors } from '../utils/mockData';
+import { courseService } from '../utils/courseService';
 import { getUserData } from '../utils/authUtils';
 import Navbar from '../components/Navbar';
 import Sidebar from '../components/Sidebar';
 import { StarIcon, CheckCircleIcon, AcademicCapIcon, ClockIcon, UsersIcon } from '@heroicons/react/24/solid';
+import ReactPlayer from 'react-player';
 
 const CourseDetailPage = () => {
   const { courseId } = useParams();
@@ -15,23 +16,23 @@ const CourseDetailPage = () => {
   const [activeTab, setActiveTab] = useState('overview');
   
   useEffect(() => {
-    // Find the course by ID
-    const foundCourse = courses.find(c => c.id === parseInt(courseId));
-    if (foundCourse) {
-      setCourse(foundCourse);
-      
-      // Find the instructor
-      const foundInstructor = instructors.find(i => i.name === foundCourse.instructor);
-      if (foundInstructor) {
-        setInstructor(foundInstructor);
+    const fetchCourse = async () => {
+      try {
+        const data = await courseService.getCourseById(courseId);
+        setCourse(data);
+        setInstructor(data.instructor);
+        // Check if user is enrolled (optional, adjust as needed)
+        const userData = getUserData();
+        if (userData && data.enrolledStudents && data.enrolledStudents.includes(userData.id)) {
+          setIsEnrolled(true);
+        } else {
+          setIsEnrolled(false);
+        }
+      } catch (err) {
+        setCourse(null);
       }
-      
-      // Check if user is enrolled
-      const userData = getUserData();
-      if (userData && userData.enrolledCourses) {
-        setIsEnrolled(userData.enrolledCourses.includes(parseInt(courseId)));
-      }
-    }
+    };
+    fetchCourse();
   }, [courseId]);
   
   const handleEnroll = () => {
@@ -110,7 +111,9 @@ const CourseDetailPage = () => {
                   </div>
                   <div className="flex items-center">
                     <UsersIcon className="h-5 w-5 text-gray-500" />
-                    <span className="ml-1 text-sm text-gray-700">{course.students.toLocaleString()} students</span>
+                    <span className="ml-1 text-sm text-gray-700">
+                      {(course.enrolledStudents ? course.enrolledStudents.length : 0)} students
+                    </span>
                   </div>
                   <div className="flex items-center">
                     <ClockIcon className="h-5 w-5 text-gray-500" />
@@ -257,6 +260,22 @@ const CourseDetailPage = () => {
                                   </div>
                                   <span className="text-sm text-gray-500">{lesson.duration}</span>
                                 </div>
+                                {/* Video player from backend */}
+                                {lesson.videoFileId && (
+                                  <div className="my-4">
+                                    <video src={`http://localhost:5000/api/file/${lesson.videoFileId}`} controls width="100%" />
+                                  </div>
+                                )}
+                                {/* PDF viewer from backend */}
+                                {lesson.pdfFileId && (
+                                  <div className="my-4">
+                                    <iframe src={`http://localhost:5000/api/file/${lesson.pdfFileId}`} width="100%" height="500px" title="PDF Preview" className="border rounded" />
+                                  </div>
+                                )}
+                                {/* Lesson content */}
+                                {lesson.content && (
+                                  <div className="my-2 text-gray-600 text-sm">{lesson.content}</div>
+                                )}
                               </li>
                             ))}
                           </ul>
@@ -292,11 +311,6 @@ const CourseDetailPage = () => {
                               </div>
                               <div className="flex items-center">
                                 <AcademicCapIcon className="h-5 w-5 text-gray-500" />
-                                <span className="ml-1 text-sm text-gray-700">{instructor.courses} Courses</span>
-                              </div>
-                              <div className="flex items-center">
-                                <UsersIcon className="h-5 w-5 text-gray-500" />
-                                <span className="ml-1 text-sm text-gray-700">{instructor.students.toLocaleString()} Students</span>
                               </div>
                             </div>
                             

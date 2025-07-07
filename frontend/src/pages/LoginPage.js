@@ -1,16 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { validateUser, saveUserData, isLoggedIn } from '../utils/authUtils';
-import { demoUsers } from '../utils/mockData';
-import { auth, db } from '../firebase';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { loginUser } from '../utils/authUtils';
 
 const LoginForm = ({ onSuccess, onSwitchToSignUp }) => {
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [role, setRole] = useState('learner');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -19,31 +14,19 @@ const LoginForm = ({ onSuccess, onSwitchToSignUp }) => {
     setError('');
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        const localStorageData = {
-          uid: user.uid,
-          email: user.email,
-          role: userData.role,
-          createdAt: userData.createdAt
-        };
-        localStorage.setItem('user', JSON.stringify(localStorageData));
-        if (userData.role === 'instructor') {
+      const result = await loginUser(email, password);
+      if (result.success) {
+        if (result.user.role === 'instructor') {
           navigate('/instructor-dashboard');
-        } else if (userData.role === 'learner') {
-          navigate('/dashboard');
         } else {
           navigate('/dashboard');
         }
         if (onSuccess) onSuccess();
       } else {
-        setError('User data not found. Please try signing up again.');
+        setError(result.error || 'Invalid credentials. Please try again.');
       }
     } catch (err) {
-      setError(`Login failed: ${err.message}`);
+      setError('Login failed. Please try again.');
     } finally {
       setLoading(false);
     }

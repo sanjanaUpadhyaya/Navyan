@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { courses } from '../utils/mockData';
 import { getUserData } from '../utils/authUtils';
 import Navbar from '../components/Navbar';
 import { CheckCircleIcon, XCircleIcon, ClockIcon } from '@heroicons/react/24/solid';
@@ -27,14 +26,8 @@ const QuizInterface = () => {
       return;
     }
     
-    // Find the course
-    const foundCourse = courses.find(c => c.id === parseInt(courseId));
-    if (!foundCourse) {
-      navigate('/courses');
-      return;
-    }
-    
-    setCourse(foundCourse);
+    // TODO: Fetch course from backend using courseId
+    setCourse({ title: 'Course Title', id: courseId }); // Placeholder
     
     // Find the quiz (in a real app, this would come from an API)
     // For this mock, we'll create a sample quiz
